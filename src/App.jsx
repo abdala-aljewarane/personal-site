@@ -2,6 +2,9 @@ import { useState } from 'react'
 
 import Sidenav from './components/Sidenav'
 import Main from './components/Main'
+import CreateApp from './components/CreateApp'
+import WriteBook from './components/WriteBook'
+import Design from './components/Design'
 
 function App() {
   
@@ -10,6 +13,9 @@ function App() {
       <div>
         <Sidenav />
         <Main />
+        <CreateApp />
+        <WriteBook />
+        <Design />
       </div>
       
     </>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AiOutlineAppstore, AiOutlineBook, AiOutlineHighlight, AiOutlineHome, AiOutlineMenu } from 'react-icons/ai';
+import { Link } from 'react-router-dom';
 
 const Sidenav = () => {
   const [nav, setNav] = useState(false);
@@ -24,7 +25,7 @@ const Sidenav = () => {
             <span className='pl-4'>Home</span>
           </a>
           <a
-            href='#main'
+            href='#create-app'
             className='w-[75%] flex justify-center items-center rounded-full shadow-lg bg-gray-100 shadow-gray-400 m-2 p-4 cursor-pointer hover:scale-110 ease-in duration-200'
           >
             <AiOutlineAppstore size={20} />
