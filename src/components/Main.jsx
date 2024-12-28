@@ -166,13 +166,13 @@ const Main = () => {
       </div>
 
       <div id='experience' className='w-full min-h-screen bg-white dark:bg-gray-900'>
-        <div className='max-w-[1000px] mx-auto p-8 flex flex-col justify-center'>
-          <h2 className='text-4xl font-bold mb-12 text-center text-gray-900 dark:text-white'>experience</h2>
+        <div className='max-w-[1000px] mx-auto p-4 md:p-8'>
+          <h2 className='text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-center text-gray-900 dark:text-white'>experience</h2>
           
-          <div className='flex flex-row justify-between'>
+          <div className='flex flex-col md:flex-row justify-between gap-8'>
             {/* Professional Experience Column */}
-            <div className='flex flex-col items-center space-y-8 w-[30%]'>
-              <h3 className='text-2xl font-bold text-gray-700 dark:text-gray-300 mb-4'>professional</h3>
+            <div className='flex flex-col items-center space-y-4 md:space-y-8 w-full md:w-[30%]'>
+              <h3 className='text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300 mb-2 md:mb-4'>professional</h3>
               
               {/* L3Harris */}
               <div className='w-24 h-24 flex-shrink-0 rounded-full bg-white dark:bg-gray-800 border-4 border-gray-200 dark:border-gray-700 overflow-hidden'>
@@ -183,10 +183,10 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-2xl font-bold'>L3Harris Technologies</h3>
-                <h4 className='text-xl text-gray-700 dark:text-gray-300'>Software Engineering Intern</h4>
-                <p className='text-gray-600 italic dark:text-gray-500'>May 2024 - August 2024</p>
-                <p className='text-gray-600 dark:text-gray-500'>Greenville, TX</p>
+                <h3 className='text-xl md:text-2xl font-bold'>L3Harris Technologies</h3>
+                <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Software Engineering Intern</h4>
+                <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2024 - August 2024</p>
+                <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>Greenville, TX</p>
               </div>
 
               {/* Vertical Line */}
@@ -201,19 +201,19 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-2xl font-bold'>Apple</h3>
-                <h4 className='text-xl text-gray-700 dark:text-gray-300'>Information Security Intern</h4>
-                <p className='text-gray-600 italic dark:text-gray-500'>May 2023 - August 2023</p>
-                <p className='text-gray-600 dark:text-gray-500'>Remote</p>
+                <h3 className='text-xl md:text-2xl font-bold'>Apple</h3>
+                <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Information Security Intern</h4>
+                <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2023 - August 2023</p>
+                <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>Remote</p>
               </div>
             </div>
 
-            {/* Vertical Divider */}
-            <div className='w-0.5 h-full bg-gray-300'></div>
+            {/* Vertical Divider - Only show on desktop */}
+            <div className='hidden md:block w-0.5 h-full bg-gray-300'></div>
 
             {/* Education Column */}
-            <div className='flex flex-col items-center space-y-8 w-[30%]'>
-              <h3 className='text-2xl font-bold text-gray-700 dark:text-gray-300 mb-4'>education</h3>
+            <div className='flex flex-col items-center space-y-4 md:space-y-8 w-full md:w-[30%]'>
+              <h3 className='text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300 mb-2 md:mb-4'>education</h3>
               
               {/* UTD */}
               <div className='w-24 h-24 flex-shrink-0 rounded-full bg-white dark:bg-gray-800 border-4 border-gray-200 dark:border-gray-700 overflow-hidden'>
@@ -231,12 +231,12 @@ const Main = () => {
               </div>
             </div>
 
-            {/* Vertical Divider */}
-            <div className='w-0.5 h-full bg-gray-300'></div>
+            {/* Vertical Divider - Only show on desktop */}
+            <div className='hidden md:block w-0.5 h-full bg-gray-300'></div>
 
             {/* Miscellaneous Experience Column */}
-            <div className='flex flex-col items-center space-y-8 w-[30%]'>
-              <h3 className='text-2xl font-bold text-gray-700 dark:text-gray-300 mb-4'>miscellaneous</h3>
+            <div className='flex flex-col items-center space-y-4 md:space-y-8 w-full md:w-[30%]'>
+              <h3 className='text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300 mb-2 md:mb-4'>miscellaneous</h3>
               
               {/* Add your miscellaneous experiences here with the same styling */}
               <div className='w-24 h-24 flex-shrink-0 rounded-full bg-white dark:bg-gray-800 border-4 border-gray-200 dark:border-gray-700 overflow-hidden'>
@@ -265,6 +265,9 @@ const Main = () => {
           </div>
         </div>
       </div>
+
+      {/* Horizontal Divider - Only show on mobile */}
+      <div className='block md:hidden w-full h-0.5 bg-gray-300 my-8'></div>
     </>
   );
 }
