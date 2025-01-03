@@ -79,7 +79,7 @@ const Main = () => {
                 wrapper="div"
                 cursor={true}
                 repeat={Infinity}
-                style={{fontSize: '1em', color: 'black'}}
+                className="text-gray-900 dark:text-white"
               />
             </div>
 
@@ -183,7 +183,7 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-xl md:text-2xl font-bold'>L3Harris Technologies</h3>
+                <h3 className='text-xl md:text-2xl font-bold text-gray-900 dark:text-white'>L3Harris Technologies</h3>
                 <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Software Engineering Intern</h4>
                 <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2024 - August 2024</p>
                 <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>Greenville, TX</p>
@@ -201,7 +201,7 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-xl md:text-2xl font-bold'>Apple</h3>
+                <h3 className='text-xl md:text-2xl font-bold text-gray-900 dark:text-white'>Apple</h3>
                 <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Information Security Intern</h4>
                 <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2023 - August 2023</p>
                 <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>Remote</p>
@@ -224,7 +224,7 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-2xl font-bold'>University of Texas at Dallas</h3>
+                <h3 className='text-2xl font-bold text-gray-900 dark:text-white'>University of Texas at Dallas</h3>
                 <h4 className='text-xl text-gray-700 dark:text-gray-300'>Bachelor of Science in Computer Science</h4>
                 <p className='text-gray-600 italic dark:text-gray-500'>Expected Graduation: May 2026</p>
                 <p className='text-gray-600 dark:text-gray-500'>Richardson, TX</p>
@@ -247,16 +247,16 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-              <h3 className='text-2xl font-bold'>
-              <a 
-                href="https://liquipedia.net/overwatch/DarkMode_NA"
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:text-blue-600"
-              >
-                DM Esports & Apparel
-              </a>
-            </h3>
+              <h3 className='text-2xl font-bold text-gray-900 dark:text-white'>
+                <a 
+                  href="https://liquipedia.net/overwatch/DarkMode_NA"
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-blue-600 dark:text-white dark:hover:text-blue-400"
+                >
+                  DM Esports & Apparel
+                </a>
+              </h3>
                 <h4 className='text-xl text-gray-700 dark:text-gray-300'>Founder</h4>
                 <p className='text-gray-600 italic dark:text-gray-500'>2018 - Present</p>
                 <p className='text-gray-600 dark:text-gray-500'></p>
