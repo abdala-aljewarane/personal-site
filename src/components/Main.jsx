@@ -174,6 +174,24 @@ const Main = () => {
             <div className='flex flex-col items-center space-y-4 md:space-y-8 w-full md:w-[30%]'>
               <h3 className='text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-300 mb-2 md:mb-4'>professional</h3>
               
+              {/* GitHub */}
+              <div className='w-24 h-24 flex-shrink-0 rounded-full bg-white dark:bg-gray-800 border-4 border-gray-200 dark:border-gray-700 overflow-hidden'>
+                <img 
+                  src='/github-logo.png' 
+                  alt='GitHub'
+                  className='w-full h-full object-contain p-2'
+                />
+              </div>
+              <div className='text-center'>
+                <h3 className='text-xl md:text-2xl font-bold'>GitHub</h3>
+                <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Incoming Software Engineer Intern</h4>
+                <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2025 - August 2025</p>
+                <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>New York City, NY</p>
+              </div>
+
+              {/* Vertical Line */}
+              <div className='w-0.5 h-16 bg-gray-300'></div>
+
               {/* L3Harris */}
               <div className='w-24 h-24 flex-shrink-0 rounded-full bg-white dark:bg-gray-800 border-4 border-gray-200 dark:border-gray-700 overflow-hidden'>
                 <img 
