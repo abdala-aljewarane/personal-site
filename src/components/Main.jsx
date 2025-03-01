@@ -183,7 +183,7 @@ const Main = () => {
                 />
               </div>
               <div className='text-center'>
-                <h3 className='text-xl md:text-2xl font-bold'>GitHub</h3>
+                <h3 className='text-xl md:text-2xl font-bold text-gray-900 dark:text-white'>GitHub</h3>
                 <h4 className='text-lg md:text-xl text-gray-700 dark:text-gray-300'>Incoming Software Engineer Intern</h4>
                 <p className='text-sm md:text-base text-gray-600 italic dark:text-gray-500'>May 2025 - August 2025</p>
                 <p className='text-sm md:text-base text-gray-600 dark:text-gray-500'>New York City, NY</p>
