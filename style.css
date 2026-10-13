@@ -109,15 +109,13 @@ li {
   font-size: 0.95rem;
 }
 
-footer {
-  margin-top: 3rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
+.links {
+  margin: -1.5rem 0 2rem;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
-footer a {
+.links a {
   color: var(--muted);
 }
 
