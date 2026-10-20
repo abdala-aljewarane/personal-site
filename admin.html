@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>comment bot</title>
+    <style>
+      :root {
+        --bg: #f6f6f4;
+        --card: #fff;
+        --text: #141414;
+        --muted: #6b6b6b;
+        --line: #e4e4e0;
+        --accent: #2a7ae2;
+        --accent-text: #fff;
+        --good: #1f8a4c;
+        --bad: #c23b32;
+        --chip: #eef3fc;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111113;
+          --card: #1b1b1e;
+          --text: #ededed;
+          --muted: #9a9aa0;
+          --line: #2c2c31;
+          --accent: #5b9cf0;
+          --accent-text: #0b1420;
+          --good: #4cc27f;
+          --bad: #ef6a60;
+          --chip: #1d2a3d;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; }
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+      h1 { font-size: 22px; margin: 0; }
+      h2 { font-size: 16px; margin: 0 0 12px; }
+      .muted { color: var(--muted); }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+      button {
+        font: inherit; cursor: pointer; border-radius: 8px; padding: 7px 14px;
+        border: 1px solid var(--line); background: var(--card); color: var(--text);
+      }
+      button:hover { border-color: var(--muted); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+      button.danger { color: var(--bad); }
+      button:disabled { opacity: 0.55; cursor: wait; }
+      input, textarea {
+        font: inherit; width: 100%; padding: 9px 11px; border-radius: 8px;
+        border: 1px solid var(--line); background: var(--bg); color: var(--text);
+      }
+      textarea { min-height: 84px; resize: vertical; }
+      label { display: block; font-weight: 600; margin: 16px 0 6px; }
+      label .muted { font-weight: 400; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .rule { display: grid; grid-template-columns: 72px 1fr; gap: 14px; }
+      .thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; background: var(--line); }
+      .chip { display: inline-block; background: var(--chip); color: var(--accent); font-weight: 700; border-radius: 6px; padding: 1px 8px; letter-spacing: 0.03em; }
+      .off { opacity: 0.5; }
+      .dm { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 10px; }
+      .posts { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+      .post { padding: 0; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: none; position: relative; }
+      .post img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+      .post.selected { border-color: var(--accent); }
+      .post span { position: absolute; left: 4px; bottom: 4px; font-size: 11px; background: rgba(0,0,0,.65); color: #fff; padding: 0 5px; border-radius: 4px; }
+      .results { margin-top: 10px; font-size: 13px; max-height: 220px; overflow: auto; }
+      .results div { padding: 2px 0; border-bottom: 1px solid var(--line); }
+      .error { color: var(--bad); margin-top: 10px; }
+      .ok { color: var(--good); }
+      .check { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-weight: 600; }
+      .check input { width: auto; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section id="login" class="card" hidden>
+        <h1>comment bot</h1>
+        <form id="loginForm">
+          <label for="pw">Password</label>
+          <input id="pw" type="password" autocomplete="current-password" required />
+          <div class="row" style="margin-top: 12px"><button class="primary">Log in</button></div>
+          <div id="loginError" class="error"></div>
+        </form>
+      </section>
+
+      <section id="app" hidden>
+        <header>
+          <h1>comment bot</h1>
+          <div class="row">
+            <button id="newBtn" class="primary">+ New rule</button>
+            <button id="logoutBtn">Log out</button>
+          </div>
+        </header>
+
+        <form id="editor" class="card" hidden>
+          <h2 id="editorTitle">New rule</h2>
+          <label>Post</label>
+          <div id="posts" class="posts"></div>
+          <label for="keyword">Keyword <span class="muted">— one word, any capitalization matches</span></label>
+          <input id="keyword" placeholder="guide" required />
+          <label for="dm">DM to send</label>
+          <textarea id="dm" placeholder="Hey! Here's the link 👇&#10;https://..." required></textarea>
+          <label for="replies">Public comment replies <span class="muted">— one per line, picks one at random</span></label>
+          <textarea id="replies" placeholder="Sent you a DM! 📩"></textarea>
+          <label class="check"><input id="enabled" type="checkbox" checked /> On</label>
+          <div class="row" style="margin-top: 16px">
+            <button class="primary" id="saveBtn">Save</button>
+            <button type="button" id="cancelBtn">Cancel</button>
+          </div>
+          <div id="editorError" class="error"></div>
+        </form>
+
+        <div id="rules"></div>
+        <p id="empty" class="muted" hidden>No rules yet. Add one to start auto-replying.</p>
+      </section>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      const store = {
+        get: () => { try { return localStorage.getItem('botpw') ?? ''; } catch { return ''; } },
+        set: (v) => { try { v ? localStorage.setItem('botpw', v) : localStorage.removeItem('botpw'); } catch {} },
+      };
+      let password = store.get();
+      let state = { rules: [], posts: [] };
+      let editing = null;
+      let selectedPost = null;
+
+      async function api(method, body) {
+        const res = await fetch('/api/admin', {
+          method,
+          headers: { Authorization: `Bearer ${password}`, 'Content-Type': 'application/json' },
+          body: body && JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
+        if (res.status === 401) logout();
+        if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
+        return data;
+      }
+
+      const postThumb = (p) => p?.thumbnail_url || p?.media_url || '';
+      const findPost = (media) => state.posts.find((p) => p.id === media);
+
+      async function load() {
+        try {
+          state = await api('GET');
+          $('login').hidden = true;
+          $('app').hidden = false;
+          renderRules();
+        } catch (err) {
+          if (!password) return showLogin();
+          showLogin(err.message);
+        }
+      }
+
+      function showLogin(msg = '') {
+        $('app').hidden = true;
+        $('login').hidden = false;
+        $('loginError').textContent = msg;
+      }
+
+      function logout() {
+        password = '';
+        store.set('');
+        showLogin();
+      }
+
+      function renderRules() {
+        $('empty').hidden = state.rules.length > 0;
+        $('rules').innerHTML = state.rules.map((r) => {
+          const post = findPost(r.media);
+          const link = r.permalink || post?.permalink || '#';
+          return `
+            <div class="card rule ${r.enabled ? '' : 'off'}" data-id="${esc(r.id)}">
+              <a href="${esc(link)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(postThumb(post))}" alt="" /></a>
+              <div>
+                <div class="row"><span class="chip">${esc(r.keyword.toUpperCase())}</span>
+                  <span class="muted">${r.enabled ? '' : 'off · '}${esc((post?.caption ?? '').slice(0, 60))}</span></div>
+                <div class="dm">${esc(r.dm)}</div>
+                <div class="row">
+                  <button data-act="edit">Edit</button>
+                  <button data-act="backfill" title="DM everyone who already commented the keyword in the last 7 days and has no reply yet">Send to existing comments</button>
+                  <button data-act="delete" class="danger">Delete</button>
+                </div>
+                <div class="results"></div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      function renderPosts() {
+        $('posts').innerHTML = state.posts.map((p) => `
+          <button type="button" class="post ${p.id === selectedPost?.id ? 'selected' : ''}" data-id="${esc(p.id)}" title="${esc(p.caption ?? '')}">
+            <img src="${esc(postThumb(p))}" alt="" loading="lazy" /><span>💬 ${p.comments_count ?? 0}</span>
+          </button>`).join('');
+      }
+
+      function openEditor(rule) {
+        editing = rule;
+        selectedPost = rule ? findPost(rule.media) ?? { id: rule.media, permalink: rule.permalink } : null;
+        $('editorTitle').textContent = rule ? 'Edit rule' : 'New rule';
+        $('keyword').value = rule?.keyword ?? '';
+        $('dm').value = rule?.dm ?? '';
+        $('replies').value = (rule?.publicReplies ?? ['Sent you a DM! 📩', 'Check your DMs 🙌']).join('\n');
+        $('enabled').checked = rule?.enabled ?? true;
+        $('editorError').textContent = '';
+        renderPosts();
+        $('editor').hidden = false;
+        $('editor').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      $('loginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        password = $('pw').value;
+        store.set(password);
+        load();
+      });
+      $('logoutBtn').addEventListener('click', logout);
+      $('newBtn').addEventListener('click', () => openEditor(null));
+      $('cancelBtn').addEventListener('click', () => { $('editor').hidden = true; });
+
+      $('posts').addEventListener('click', (e) => {
+        const btn = e.target.closest('.post');
+        if (!btn) return;
+        selectedPost = findPost(btn.dataset.id);
+        renderPosts();
+      });
+
+      $('editor').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $('saveBtn');
+        btn.disabled = true;
+        $('editorError').textContent = '';
+        try {
+          const { rule } = await api('POST', {
+            action: 'save',
+            rule: {
+              id: editing?.id,
+              media: selectedPost?.id,
+              permalink: selectedPost?.permalink,
+              keyword: $('keyword').value,
+              dm: $('dm').value,
+              publicReplies: $('replies').value.split('\n'),
+              enabled: $('enabled').checked,
+            },
+          });
+          const i = state.rules.findIndex((r) => r.id === rule.id);
+          if (i >= 0) state.rules[i] = rule; else state.rules.push(rule);
+          $('editor').hidden = true;
+          renderRules();
+        } catch (err) {
+          $('editorError').textContent = err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      $('rules').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        const card = btn.closest('.rule');
+        const rule = state.rules.find((r) => r.id === card.dataset.id);
+        const out = card.querySelector('.results');
+
+        if (btn.dataset.act === 'edit') return openEditor(rule);
+
+        if (btn.dataset.act === 'delete') {
+          if (!confirm(`Delete the ${rule.keyword.toUpperCase()} rule?`)) return;
+          await api('POST', { action: 'delete', id: rule.id });
+          state.rules = state.rules.filter((r) => r.id !== rule.id);
+          return renderRules();
+        }
+
+        if (btn.dataset.act === 'backfill') {
+          btn.disabled = true;
+          out.innerHTML = '<div class="muted">Sending… this can take a minute.</div>';
+          try {
+            const { results } = await api('POST', { action: 'backfill', id: rule.id });
+            const sent = results.filter((r) => r.status === 'sent').length;
+            out.innerHTML = `<div class="ok">Sent to ${sent} of ${results.length} unreplied comment${results.length === 1 ? '' : 's'}.</div>` +
+              results.map((r) => `<div>@${esc(r.user)} — ${esc(r.status)}</div>`).join('');
+          } catch (err) {
+            out.innerHTML = `<div class="error">${esc(err.message)}</div>`;
+          } finally {
+            btn.disabled = false;
+          }
+        }
+      });
+
+      load();
+    </script>
+  </body>
+</html>

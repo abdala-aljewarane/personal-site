@@ -3,6 +3,7 @@
   "buildCommand": "",
   "outputDirectory": ".",
   "cleanUrls": true,
+  "crons": [{ "path": "/api/refresh-token", "schedule": "0 9 * * 1" }],
   "redirects": [
     { "source": "/about", "destination": "/", "permanent": true },
     { "source": "/about.html", "destination": "/", "permanent": true }
