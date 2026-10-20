@@ -5,7 +5,6 @@
 //   IG_VERIFY_TOKEN  - any string you choose; paste the same one in the Meta webhook setup
 //   IG_APP_SECRET    - Instagram app secret (used to verify webhook signatures)
 //   IG_ACCESS_TOKEN  - long-lived Instagram user access token (instagram_business_manage_messages + _comments)
-//   GUIDE_LINK       - the link to send for the GUIDE keyword
 
 import crypto from 'node:crypto';
 
@@ -14,8 +13,10 @@ const GRAPH = 'https://graph.instagram.com/v23.0';
 // Add more keywords here. `media` optionally limits a trigger to one post's media id.
 const TRIGGERS = [
   {
+    // instagram.com/p/Ded3Mq5m2gV
     keyword: 'guide',
-    dm: () => `Hey! Here's the internship guide 👇\n${process.env.GUIDE_LINK}`,
+    media: '18132626320832043',
+    dm: () => `Hey! Here's the internship guide 👇\nhttps://drive.google.com/file/d/1YRAglykKmKTsveQ3coBQ_47IwmS2_bNu/view?usp=sharing`,
     publicReply: ['Sent you a DM! 📩', 'Check your DMs 🙌', 'Just sent it, check your inbox!'],
   },
 ];
