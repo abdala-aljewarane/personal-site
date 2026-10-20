@@ -103,6 +103,7 @@ export async function backfill(rule) {
   const me = await graph('/me', { params: { fields: 'user_id' } });
   const comments = await graphAll(`/${rule.media}/comments`, { fields: 'id,text,timestamp,from,replies{id}' });
   const results = [];
+  const todo = [];
   for (const c of comments) {
     const user = c.from?.username ?? c.from?.id;
     if (c.from?.id === me.user_id) continue;
@@ -112,12 +113,21 @@ export async function backfill(rule) {
       results.push({ user, status: 'too old (over 7 days)' });
       continue;
     }
-    try {
-      const r = await respond(me.user_id, { ...c, media: { id: rule.media } }, rule);
-      results.push({ user, status: r.skipped ?? 'sent' });
-    } catch (err) {
-      results.push({ user, status: `failed: ${err.message}` });
-    }
+    todo.push({ ...c, user });
+  }
+
+  // A few at a time: one-by-one was slow enough on big posts to hit the function timeout.
+  for (let i = 0; i < todo.length; i += 5) {
+    await Promise.all(
+      todo.slice(i, i + 5).map(async (c) => {
+        try {
+          const r = await respond(me.user_id, { ...c, media: { id: rule.media } }, rule);
+          results.push({ user: c.user, status: r.skipped ?? 'sent' });
+        } catch (err) {
+          results.push({ user: c.user, status: `failed: ${err.message}` });
+        }
+      }),
+    );
   }
   return results;
 }

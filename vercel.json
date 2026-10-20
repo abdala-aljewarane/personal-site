@@ -3,6 +3,8 @@
   "buildCommand": "",
   "outputDirectory": ".",
   "cleanUrls": true,
+  "fluid": true,
+  "functions": { "api/*.mjs": { "maxDuration": 300 } },
   "crons": [{ "path": "/api/refresh-token", "schedule": "0 9 * * 1" }],
   "redirects": [
     { "source": "/about", "destination": "/", "permanent": true },
