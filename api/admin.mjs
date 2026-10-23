@@ -1,8 +1,10 @@
-// Backend for the /admin page: list posts, add/edit/delete keyword rules, and backfill old comments.
+// Backend for the /admin page: list posts, add/edit/delete keyword rules, backfill old comments,
+// and view/cancel paid 1:1 bookings.
 // Every request needs `Authorization: Bearer <ADMIN_PASSWORD>`.
 
 import crypto from 'node:crypto';
 import { getRules, saveRules, recentPosts, backfill } from './_lib.mjs';
+import { listBookings, cancelBooking } from './_booking.mjs';
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -14,8 +16,8 @@ function authorized(request) {
 
 export async function GET(request) {
   if (!authorized(request)) return json({ error: 'Wrong password' }, 401);
-  const [rules, posts] = await Promise.all([getRules(), recentPosts()]);
-  return json({ rules, posts });
+  const [rules, posts, bookings] = await Promise.all([getRules(), recentPosts(), listBookings()]);
+  return json({ rules, posts, bookings });
 }
 
 export async function POST(request) {
@@ -55,6 +57,11 @@ export async function POST(request) {
     const target = rules.find((r) => r.id === id);
     if (!target) return json({ error: 'Rule not found' }, 404);
     return json({ results: await backfill(target) });
+  }
+
+  if (action === 'cancelBooking') {
+    await cancelBooking(id);
+    return json({ ok: true });
   }
 
   return json({ error: 'Unknown action' }, 400);

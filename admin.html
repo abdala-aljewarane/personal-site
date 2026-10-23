@@ -119,6 +119,10 @@
           <div id="editorError" class="error"></div>
         </form>
 
+        <h2>Upcoming 1:1s</h2>
+        <div id="bookings"></div>
+
+        <h2 style="margin-top: 24px">Comment rules</h2>
         <div id="rules"></div>
         <p id="empty" class="muted" hidden>No rules yet. Add one to start auto-replying.</p>
       </section>
@@ -132,7 +136,7 @@
         set: (v) => { try { v ? localStorage.setItem('botpw', v) : localStorage.removeItem('botpw'); } catch {} },
       };
       let password = store.get();
-      let state = { rules: [], posts: [] };
+      let state = { rules: [], posts: [], bookings: [] };
       let editing = null;
       let selectedPost = null;
 
@@ -157,6 +161,7 @@
           $('login').hidden = true;
           $('app').hidden = false;
           renderRules();
+          renderBookings();
         } catch (err) {
           if (!password) return showLogin();
           showLogin(err.message);
@@ -197,6 +202,27 @@
             </div>`;
         }).join('');
       }
+
+      function renderBookings() {
+        const upcoming = state.bookings.filter((b) => new Date(b.slot) > Date.now() - 3600e3);
+        $('bookings').innerHTML = upcoming.length ? upcoming.map((b) => `
+          <div class="card" data-id="${esc(b.id)}">
+            <div class="row"><strong>${esc(new Date(b.slot).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))}</strong>
+              <span>${esc(b.name)}</span> <a class="muted" href="mailto:${esc(b.email)}">${esc(b.email)}</a></div>
+            ${b.topic ? `<div class="dm">${esc(b.topic)}</div>` : ''}
+            <div class="row"><button data-act="cancelBooking" class="danger" title="Frees the slot. Refund separately in Stripe.">Cancel</button></div>
+          </div>`).join('') : '<p class="muted">No upcoming bookings.</p>';
+      }
+
+      $('bookings').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-act="cancelBooking"]');
+        if (!btn) return;
+        const id = btn.closest('.card').dataset.id;
+        if (!confirm('Cancel this booking and free the slot? (Refund it in Stripe separately.)')) return;
+        await api('POST', { action: 'cancelBooking', id });
+        state.bookings = state.bookings.filter((b) => b.id !== id);
+        renderBookings();
+      });
 
       function renderPosts() {
         $('posts').innerHTML = state.posts.map((p) => `
@@ -258,6 +284,7 @@
           if (i >= 0) state.rules[i] = rule; else state.rules.push(rule);
           $('editor').hidden = true;
           renderRules();
+          renderBookings();
         } catch (err) {
           $('editorError').textContent = err.message;
         } finally {

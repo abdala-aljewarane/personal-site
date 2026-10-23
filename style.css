@@ -131,3 +131,67 @@ hr {
     gap: 0.15rem;
   }
 }
+
+/* --- /book --- */
+
+.muted {
+  color: var(--muted);
+}
+
+.slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.slot-row button,
+.book-form button {
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
+
+.slot-row button:hover {
+  border-color: var(--link);
+}
+
+.slot-row button.selected,
+.book-form button {
+  background: var(--link);
+  border-color: var(--link);
+  color: #fff;
+}
+
+.book-form button {
+  margin-top: 1rem;
+}
+
+.book-form button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.book-form label {
+  display: block;
+  margin: 0.9rem 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.book-form input,
+.book-form textarea {
+  font: inherit;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.error {
+  color: #c23b32;
+}

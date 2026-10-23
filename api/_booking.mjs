@@ -1,0 +1,140 @@
+// Shared helpers for paid 1:1 bookings: availability, Redis slot holds, and Stripe Checkout.
+
+import crypto from 'node:crypto';
+import { redis } from './_lib.mjs';
+
+// --- Availability (edit these) ---
+
+export const PRICE_CENTS = 5000;
+export const DURATION_MIN = 30;
+const TZ = 'America/Los_Angeles';
+const DAYS_AHEAD = 14;
+const MIN_NOTICE_HOURS = 12;
+// Weekday (0 = Sunday) → [start, end) windows in local 24h time.
+const HOURS = {
+  0: [['10:00', '16:00']],
+  1: [['18:00', '21:00']],
+  2: [['18:00', '21:00']],
+  3: [['18:00', '21:00']],
+  4: [['18:00', '21:00']],
+  5: [['18:00', '21:00']],
+  6: [['10:00', '16:00']],
+};
+
+const HOLD_SECONDS = 35 * 60; // Stripe Checkout sessions expire after 30 min; the hold outlives them.
+const slotKey = (iso) => `book:slot:${iso}`;
+
+// Offset (ms) of TZ from UTC at the given instant.
+function tzOffset(ms) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(ms).map((p) => [p.type, p.value]),
+  );
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - ms;
+}
+
+// A wall-clock time in TZ → UTC ms (handles DST).
+function zoned(y, m, d, hh, mm) {
+  const guess = Date.UTC(y, m, d, hh, mm);
+  const first = guess - tzOffset(guess);
+  return guess - tzOffset(first);
+}
+
+function candidateSlots(now = Date.now()) {
+  const slots = [];
+  const earliest = now + MIN_NOTICE_HOURS * 3600e3;
+  for (let i = 0; i <= DAYS_AHEAD; i++) {
+    const day = new Date(now + i * 86400e3 + tzOffset(now));
+    const [y, m, d] = [day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()];
+    for (const [from, to] of HOURS[day.getUTCDay()] ?? []) {
+      const [fh, fm] = from.split(':').map(Number);
+      const [th, tm] = to.split(':').map(Number);
+      const end = zoned(y, m, d, th, tm);
+      for (let t = zoned(y, m, d, fh, fm); t + DURATION_MIN * 60e3 <= end; t += DURATION_MIN * 60e3) {
+        if (t >= earliest) slots.push(new Date(t).toISOString());
+      }
+    }
+  }
+  return slots;
+}
+
+export async function openSlots() {
+  const slots = candidateSlots();
+  if (!slots.length) return [];
+  const taken = await redis('MGET', ...slots.map(slotKey));
+  return slots.filter((_, i) => taken[i] === null);
+}
+
+export const isBookable = (iso) => candidateSlots().includes(iso);
+
+// Reserves a slot while the visitor is on the Stripe page. Returns false if it's taken.
+export async function holdSlot(iso, holder) {
+  return (await redis('SET', slotKey(iso), `hold:${holder}`, 'NX', 'EX', HOLD_SECONDS)) === 'OK';
+}
+
+export const releaseSlot = (iso) => redis('DEL', slotKey(iso));
+
+// --- Bookings ---
+
+// Idempotent: called from both the success page and the Stripe webhook.
+export async function confirmBooking(session) {
+  if (session.payment_status !== 'paid') return null;
+  const existing = await redis('HGET', 'book:all', session.id);
+  if (existing) return JSON.parse(existing);
+  const booking = {
+    id: session.id,
+    slot: session.metadata.slot,
+    name: session.metadata.name,
+    email: session.customer_details?.email ?? session.customer_email,
+    topic: session.metadata.topic,
+    paidAt: new Date().toISOString(),
+  };
+  await redis('SET', slotKey(booking.slot), `paid:${session.id}`);
+  await redis('HSET', 'book:all', session.id, JSON.stringify(booking));
+  return booking;
+}
+
+export async function listBookings() {
+  const all = (await redis('HVALS', 'book:all')).map((b) => JSON.parse(b));
+  return all.sort((a, b) => a.slot.localeCompare(b.slot));
+}
+
+export async function cancelBooking(id) {
+  const raw = await redis('HGET', 'book:all', id);
+  if (!raw) return;
+  await releaseSlot(JSON.parse(raw).slot);
+  await redis('HDEL', 'book:all', id);
+}
+
+// --- Stripe (REST, no SDK) ---
+
+function formEncode(obj, prefix = '', out = new URLSearchParams()) {
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (v !== null && typeof v === 'object') formEncode(v, key, out);
+    else if (v !== undefined) out.append(key, String(v));
+  }
+  return out;
+}
+
+export async function stripe(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`https://api.stripe.com/v1${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+    body: body && formEncode(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message ?? `Stripe HTTP ${res.status}`);
+  return data;
+}
+
+export function verifyStripeSignature(rawBody, header) {
+  const parts = Object.fromEntries((header ?? '').split(',').map((p) => p.split('=')));
+  const secret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+  if (!parts.t || !parts.v1 || !secret) return false;
+  if (Math.abs(Date.now() / 1000 - Number(parts.t)) > 300) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`${parts.t}.${rawBody}`).digest('hex');
+  return expected.length === parts.v1.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
+}

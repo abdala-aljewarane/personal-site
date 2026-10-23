@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>book a 1:1 · abdala aljewarane</title>
+
+    <meta property="og:title" content="book a 1:1 with abdala" />
+    <meta property="og:description" content="30 minutes, $50. career, interviews, internships, whatever you want." />
+    <meta property="og:url" content="https://www.abd4la.com/book" />
+    <meta name="theme-color" content="#4a9eff" />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="site" href="./">abdala aljewarane</a>
+        <nav>
+          <a href="blog.html">blog</a>
+        </nav>
+      </header>
+
+      <section id="picker">
+        <h1>book a 1:1</h1>
+        <p><span id="duration">30</span> minutes, <span id="price">$50</span>. ask me about software engineering, internships, interviews, big tech, esports, whatever.</p>
+        <p class="muted">times are shown in <span id="tz"></span>.</p>
+
+        <div id="days" class="slot-row"></div>
+        <div id="times" class="slot-row"></div>
+        <p id="none" class="muted" hidden>no open times right now. email me at <a href="mailto:aaljewarane@gmail.com">aaljewarane@gmail.com</a>.</p>
+
+        <form id="form" class="book-form" hidden>
+          <h2 id="chosen"></h2>
+          <label for="name">name</label>
+          <input id="name" autocomplete="name" required />
+          <label for="email">email</label>
+          <input id="email" type="email" autocomplete="email" required />
+          <label for="topic">what do you want to talk about? <span class="muted">(optional)</span></label>
+          <textarea id="topic" rows="3" maxlength="450"></textarea>
+          <button id="pay">continue to payment</button>
+          <p id="error" class="error"></p>
+        </form>
+      </section>
+
+      <section id="done" hidden>
+        <h1>you're booked 🎉</h1>
+        <p id="doneWhen"></p>
+        <p id="doneLink"></p>
+        <p><a id="ics" href="#" download="1on1-abdala.ics">add to calendar</a></p>
+        <p class="muted">a receipt is on its way to your email. if you need to reschedule, email <a href="mailto:aaljewarane@gmail.com">aaljewarane@gmail.com</a>.</p>
+      </section>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+      const fullFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' });
+      const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      let byDay = new Map();
+      let chosen = null;
+
+      $('tz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
+
+      async function loadSlots() {
+        const res = await fetch('/api/book');
+        const { slots, duration, price } = await res.json();
+        $('duration').textContent = duration;
+        $('price').textContent = `$${price / 100}`;
+        byDay = new Map();
+        for (const iso of slots) {
+          const k = dayKey(new Date(iso));
+          if (!byDay.has(k)) byDay.set(k, []);
+          byDay.get(k).push(iso);
+        }
+        $('none').hidden = slots.length > 0;
+        $('days').innerHTML = [...byDay].map(([k, list]) =>
+          `<button type="button" data-day="${k}">${dayFmt.format(new Date(list[0]))}</button>`).join('');
+      }
+
+      function pick(btns, el) {
+        for (const b of btns.children) b.classList.toggle('selected', b === el);
+      }
+
+      $('days').addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        pick($('days'), btn);
+        $('form').hidden = true;
+        $('times').innerHTML = byDay.get(btn.dataset.day).map((iso) =>
+          `<button type="button" data-slot="${iso}">${timeFmt.format(new Date(iso))}</button>`).join('');
+      });
+
+      $('times').addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        pick($('times'), btn);
+        chosen = btn.dataset.slot;
+        $('chosen').textContent = fullFmt.format(new Date(chosen));
+        $('error').textContent = '';
+        $('form').hidden = false;
+        $('name').focus();
+      });
+
+      $('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        $('pay').disabled = true;
+        $('error').textContent = '';
+        try {
+          const res = await fetch('/api/book', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slot: chosen, name: $('name').value, email: $('email').value, topic: $('topic').value }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          location.href = data.url;
+        } catch (err) {
+          $('error').textContent = err.message || 'something went wrong, try again';
+          $('pay').disabled = false;
+          if (/grabbed|available/.test(err.message)) loadSlots().then(() => { $('times').innerHTML = ''; $('form').hidden = true; });
+        }
+      });
+
+      function ics(start, minutes, url) {
+        const stamp = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+        const end = new Date(start.getTime() + minutes * 60e3);
+        return [
+          'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//abd4la//book//EN', 'BEGIN:VEVENT',
+          `UID:${stamp(start)}@abd4la.com`, `DTSTAMP:${stamp(new Date())}`,
+          `DTSTART:${stamp(start)}`, `DTEND:${stamp(end)}`,
+          'SUMMARY:1:1 with abdala', url ? `LOCATION:${url}` : '', url ? `DESCRIPTION:${url}` : '',
+          'END:VEVENT', 'END:VCALENDAR',
+        ].filter(Boolean).join('\r\n');
+      }
+
+      async function showConfirmation(sessionId) {
+        $('picker').hidden = true;
+        $('done').hidden = false;
+        $('doneWhen').textContent = 'confirming your payment…';
+        const res = await fetch(`/api/book?session_id=${encodeURIComponent(sessionId)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          $('doneWhen').textContent = data.error;
+          return;
+        }
+        const start = new Date(data.booking.slot);
+        $('doneWhen').textContent = `${fullFmt.format(start)}, ${data.duration} minutes.`;
+        $('doneLink').innerHTML = data.meetingUrl
+          ? `join here: <a href="${encodeURI(data.meetingUrl)}">${data.meetingUrl.replace(/^https?:\/\//, '')}</a>`
+          : `i'll email you a meeting link before the call.`;
+        $('ics').href = URL.createObjectURL(new Blob([ics(start, data.duration, data.meetingUrl)], { type: 'text/calendar' }));
+      }
+
+      const sessionId = new URLSearchParams(location.search).get('session_id');
+      if (sessionId) showConfirmation(sessionId);
+      else loadSlots();
+    </script>
+  </body>
+</html>
