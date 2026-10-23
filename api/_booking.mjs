@@ -5,8 +5,9 @@ import { redis } from './_lib.mjs';
 
 // --- Availability (edit these) ---
 
-export const PRICE_CENTS = 5000;
-export const DURATION_MIN = 30;
+// Call length (minutes) → price (cents).
+export const PRICES = { 30: 3000, 60: 5000 };
+const STEP_MIN = 30; // slot grid; longer calls take several consecutive steps
 const TZ = 'America/Los_Angeles';
 const DAYS_AHEAD = 14;
 const MIN_NOTICE_HOURS = 12;
@@ -52,7 +53,7 @@ function candidateSlots(now = Date.now()) {
       const [fh, fm] = from.split(':').map(Number);
       const [th, tm] = to.split(':').map(Number);
       const end = zoned(y, m, d, th, tm);
-      for (let t = zoned(y, m, d, fh, fm); t + DURATION_MIN * 60e3 <= end; t += DURATION_MIN * 60e3) {
+      for (let t = zoned(y, m, d, fh, fm); t + STEP_MIN * 60e3 <= end; t += STEP_MIN * 60e3) {
         if (t >= earliest) slots.push(new Date(t).toISOString());
       }
     }
@@ -60,21 +61,42 @@ function candidateSlots(now = Date.now()) {
   return slots;
 }
 
+// The grid steps a call starting at `iso` would occupy.
+function steps(iso, minutes) {
+  return Array.from({ length: minutes / STEP_MIN }, (_, k) => new Date(Date.parse(iso) + k * STEP_MIN * 60e3).toISOString());
+}
+
+// Start times that have every step of the call open (and inside one availability window).
+function startsFor(open, minutes) {
+  return [...open].filter((iso) => steps(iso, minutes).every((s) => open.has(s)));
+}
+
+// → { 30: [iso, ...], 60: [iso, ...] }
 export async function openSlots() {
   const slots = candidateSlots();
-  if (!slots.length) return [];
+  if (!slots.length) return Object.fromEntries(Object.keys(PRICES).map((m) => [m, []]));
   const taken = await redis('MGET', ...slots.map(slotKey));
-  return slots.filter((_, i) => taken[i] === null);
+  const open = new Set(slots.filter((_, i) => taken[i] === null));
+  return Object.fromEntries(Object.keys(PRICES).map((m) => [m, startsFor(open, Number(m))]));
 }
 
-export const isBookable = (iso) => candidateSlots().includes(iso);
+export const isBookable = (iso, minutes) =>
+  Boolean(PRICES[minutes]) && startsFor(new Set(candidateSlots()), minutes).includes(iso);
 
-// Reserves a slot while the visitor is on the Stripe page. Returns false if it's taken.
-export async function holdSlot(iso, holder) {
-  return (await redis('SET', slotKey(iso), `hold:${holder}`, 'NX', 'EX', HOLD_SECONDS)) === 'OK';
+// Reserves a call's steps while the visitor is on the Stripe page. Returns false if any is taken.
+export async function holdSlot(iso, minutes, holder) {
+  const held = [];
+  for (const s of steps(iso, minutes)) {
+    if ((await redis('SET', slotKey(s), `hold:${holder}`, 'NX', 'EX', HOLD_SECONDS)) !== 'OK') {
+      if (held.length) await redis('DEL', ...held.map(slotKey));
+      return false;
+    }
+    held.push(s);
+  }
+  return true;
 }
 
-export const releaseSlot = (iso) => redis('DEL', slotKey(iso));
+export const releaseSlot = (iso, minutes) => redis('DEL', ...steps(iso, minutes).map(slotKey));
 
 // --- Bookings ---
 
@@ -86,12 +108,13 @@ export async function confirmBooking(session) {
   const booking = {
     id: session.id,
     slot: session.metadata.slot,
+    duration: Number(session.metadata.duration) || 30,
     name: session.metadata.name,
     email: session.customer_details?.email ?? session.customer_email,
     topic: session.metadata.topic,
     paidAt: new Date().toISOString(),
   };
-  await redis('SET', slotKey(booking.slot), `paid:${session.id}`);
+  for (const s of steps(booking.slot, booking.duration)) await redis('SET', slotKey(s), `paid:${session.id}`);
   try {
     Object.assign(booking, await createCalendarEvent(booking));
   } catch (err) {
@@ -110,7 +133,7 @@ export async function cancelBooking(id) {
   const raw = await redis('HGET', 'book:all', id);
   if (!raw) return;
   const booking = JSON.parse(raw);
-  await releaseSlot(booking.slot);
+  await releaseSlot(booking.slot, booking.duration ?? 30);
   await redis('HDEL', 'book:all', id);
   if (booking.eventId) await deleteCalendarEvent(booking.eventId).catch((err) => console.error(err.message));
 }
@@ -161,7 +184,7 @@ async function createCalendarEvent(booking) {
         summary: `1:1 with ${booking.name}`,
         description: booking.topic ? `topic: ${booking.topic}` : '',
         start: { dateTime: start.toISOString() },
-        end: { dateTime: new Date(start.getTime() + DURATION_MIN * 60e3).toISOString() },
+        end: { dateTime: new Date(start.getTime() + booking.duration * 60e3).toISOString() },
         attendees: [{ email: booking.email, displayName: booking.name }],
         conferenceData: { createRequest: { requestId: eventId, conferenceSolutionKey: { type: 'hangoutsMeet' } } },
       },

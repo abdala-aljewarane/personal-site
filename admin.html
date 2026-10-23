@@ -208,6 +208,7 @@
         $('bookings').innerHTML = upcoming.length ? upcoming.map((b) => `
           <div class="card" data-id="${esc(b.id)}">
             <div class="row"><strong>${esc(new Date(b.slot).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))}</strong>
+              <span class="muted">${b.duration ?? 30} min</span>
               <span>${esc(b.name)}</span> <a class="muted" href="mailto:${esc(b.email)}">${esc(b.email)}</a></div>
             ${b.topic ? `<div class="dm">${esc(b.topic)}</div>` : ''}
             <div class="row"><button data-act="cancelBooking" class="danger" title="Frees the slot. Refund separately in Stripe.">Cancel</button></div>

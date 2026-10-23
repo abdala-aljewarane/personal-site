@@ -6,7 +6,7 @@
     <title>book a 1:1 · abdala aljewarane</title>
 
     <meta property="og:title" content="book a 1:1 with abdala" />
-    <meta property="og:description" content="30 minutes, $50. career, interviews, internships, whatever you want." />
+    <meta property="og:description" content="30 min for $30 or an hour for $50. career, interviews, internships, whatever you want." />
     <meta property="og:url" content="https://www.abd4la.com/book" />
     <meta name="theme-color" content="#4a9eff" />
 
@@ -23,9 +23,10 @@
 
       <section id="picker">
         <h1>book a 1:1</h1>
-        <p><span id="duration">30</span> minutes, <span id="price">$50</span>. ask me about software engineering, internships, interviews, big tech, esports, whatever.</p>
-        <p class="muted">times are shown in <span id="tz"></span>.</p>
+        <p>ask me about software engineering, internships, interviews, big tech, esports, whatever.</p>
 
+        <div id="lengths" class="slot-row"></div>
+        <p class="muted">times are shown in <span id="tz"></span>.</p>
         <div id="days" class="slot-row"></div>
         <div id="times" class="slot-row"></div>
         <p id="none" class="muted" hidden>no open times right now. email me at <a href="mailto:aaljewarane@gmail.com">aaljewarane@gmail.com</a>.</p>
@@ -59,6 +60,9 @@
       const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
       const fullFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' });
       const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      let allSlots = {};
+      let prices = {};
+      let minutes = 30;
       let byDay = new Map();
       let chosen = null;
 
@@ -66,9 +70,16 @@
 
       async function loadSlots() {
         const res = await fetch('/api/book');
-        const { slots, duration, price } = await res.json();
-        $('duration').textContent = duration;
-        $('price').textContent = `$${price / 100}`;
+        ({ slots: allSlots, prices } = await res.json());
+        $('lengths').innerHTML = Object.entries(prices).map(([m, cents]) =>
+          `<button type="button" data-minutes="${m}" class="${Number(m) === minutes ? 'selected' : ''}">${m} min · $${cents / 100}</button>`).join('');
+        renderDays();
+      }
+
+      function renderDays() {
+        const slots = allSlots[minutes] ?? [];
+        $('times').innerHTML = '';
+        $('form').hidden = true;
         byDay = new Map();
         for (const iso of slots) {
           const k = dayKey(new Date(iso));
@@ -84,6 +95,14 @@
         for (const b of btns.children) b.classList.toggle('selected', b === el);
       }
 
+      $('lengths').addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        pick($('lengths'), btn);
+        minutes = Number(btn.dataset.minutes);
+        renderDays();
+      });
+
       $('days').addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
@@ -98,7 +117,7 @@
         if (!btn) return;
         pick($('times'), btn);
         chosen = btn.dataset.slot;
-        $('chosen').textContent = fullFmt.format(new Date(chosen));
+        $('chosen').textContent = `${fullFmt.format(new Date(chosen))} · ${minutes} min · $${prices[minutes] / 100}`;
         $('error').textContent = '';
         $('form').hidden = false;
         $('name').focus();
@@ -112,7 +131,7 @@
           const res = await fetch('/api/book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slot: chosen, name: $('name').value, email: $('email').value, topic: $('topic').value }),
+            body: JSON.stringify({ slot: chosen, duration: minutes, name: $('name').value, email: $('email').value, topic: $('topic').value }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
