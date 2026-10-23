@@ -92,6 +92,11 @@ export async function confirmBooking(session) {
     paidAt: new Date().toISOString(),
   };
   await redis('SET', slotKey(booking.slot), `paid:${session.id}`);
+  try {
+    Object.assign(booking, await createCalendarEvent(booking));
+  } catch (err) {
+    console.error(`calendar event for ${session.id} failed:`, err.message);
+  }
   await redis('HSET', 'book:all', session.id, JSON.stringify(booking));
   return booking;
 }
@@ -104,9 +109,71 @@ export async function listBookings() {
 export async function cancelBooking(id) {
   const raw = await redis('HGET', 'book:all', id);
   if (!raw) return;
-  await releaseSlot(JSON.parse(raw).slot);
+  const booking = JSON.parse(raw);
+  await releaseSlot(booking.slot);
   await redis('HDEL', 'book:all', id);
+  if (booking.eventId) await deleteCalendarEvent(booking.eventId).catch((err) => console.error(err.message));
 }
+
+// --- Google Calendar (OAuth refresh token for the site owner; see scripts/google-auth.mjs) ---
+
+const CALENDAR = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(process.env.GOOGLE_CALENDAR_ID ?? 'primary')}/events`;
+
+async function googleToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`google auth: ${data.error_description ?? data.error}`);
+  return data.access_token;
+}
+
+async function gcal(path, { method = 'GET', body } = {}) {
+  const res = await fetch(CALENDAR + path, {
+    method,
+    headers: { Authorization: `Bearer ${await googleToken()}`, 'Content-Type': 'application/json' },
+    body: body && JSON.stringify(body),
+  });
+  if (res.status === 204) return null;
+  const data = await res.json();
+  if (!res.ok) throw Object.assign(new Error(`google calendar: ${data.error?.message}`), { status: res.status });
+  return data;
+}
+
+// Puts the call on my calendar, invites the guest (Google emails them), and adds a Meet link.
+// The event id is derived from the Stripe session so a duplicate confirm can't double-book.
+async function createCalendarEvent(booking) {
+  if (!process.env.GOOGLE_REFRESH_TOKEN) return {};
+  const eventId = crypto.createHash('sha256').update(booking.id).digest('hex').slice(0, 32);
+  const start = new Date(booking.slot);
+  let event;
+  try {
+    event = await gcal('?conferenceDataVersion=1&sendUpdates=all', {
+      method: 'POST',
+      body: {
+        id: eventId,
+        summary: `1:1 with ${booking.name}`,
+        description: booking.topic ? `topic: ${booking.topic}` : '',
+        start: { dateTime: start.toISOString() },
+        end: { dateTime: new Date(start.getTime() + DURATION_MIN * 60e3).toISOString() },
+        attendees: [{ email: booking.email, displayName: booking.name }],
+        conferenceData: { createRequest: { requestId: eventId, conferenceSolutionKey: { type: 'hangoutsMeet' } } },
+      },
+    });
+  } catch (err) {
+    if (err.status !== 409) throw err;
+    event = await gcal(`/${eventId}`);
+  }
+  return { eventId, meetUrl: event.hangoutLink ?? '' };
+}
+
+const deleteCalendarEvent = (eventId) => gcal(`/${eventId}?sendUpdates=all`, { method: 'DELETE' });
 
 // --- Stripe (REST, no SDK) ---
 

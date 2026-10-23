@@ -195,3 +195,56 @@ hr {
 .error {
   color: #c23b32;
 }
+
+/* --- big "book a 1:1" button on the homepage --- */
+
+.cta {
+  display: block;
+  margin: -1rem 0 2rem;
+  padding: 1.1rem 1.5rem;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #2a7ae2, #7b4dff, #2a7ae2);
+  background-size: 200% 100%;
+  color: #fff;
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px rgba(42, 122, 226, 0.35);
+  animation: cta-shift 6s ease infinite, cta-pulse 2.4s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+
+.cta span {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.cta:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+.cta:hover span {
+  transform: translateX(6px);
+}
+
+.cta + .links {
+  margin-top: 0;
+}
+
+@keyframes cta-shift {
+  50% { background-position: 100% 0; }
+}
+
+@keyframes cta-pulse {
+  50% { box-shadow: 0 10px 34px rgba(123, 77, 255, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta { animation: none; }
+}
+
+@media (max-width: 540px) {
+  .cta { font-size: 1.3rem; }
+}

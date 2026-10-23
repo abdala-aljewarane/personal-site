@@ -47,7 +47,8 @@
         <h1>you're booked 🎉</h1>
         <p id="doneWhen"></p>
         <p id="doneLink"></p>
-        <p><a id="ics" href="#" download="1on1-abdala.ics">add to calendar</a></p>
+        <p id="invited" hidden>📩 a google calendar invite is on its way to your email.</p>
+        <p><span id="addLabel"></span><a id="gcal" href="#" target="_blank" rel="noopener">add to google calendar</a> · <a id="ics" href="#" download="1on1-abdala.ics">apple / outlook (.ics)</a></p>
         <p class="muted">a receipt is on its way to your email. if you need to reschedule, email <a href="mailto:aaljewarane@gmail.com">aaljewarane@gmail.com</a>.</p>
       </section>
     </div>
@@ -135,6 +136,14 @@
         ].filter(Boolean).join('\r\n');
       }
 
+      function gcalLink(start, minutes, url) {
+        const stamp = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+        const end = new Date(start.getTime() + minutes * 60e3);
+        const params = new URLSearchParams({ action: 'TEMPLATE', text: '1:1 with abdala', dates: `${stamp(start)}/${stamp(end)}` });
+        if (url) { params.set('location', url); params.set('details', `join: ${url}`); }
+        return `https://calendar.google.com/calendar/render?${params}`;
+      }
+
       async function showConfirmation(sessionId) {
         $('picker').hidden = true;
         $('done').hidden = false;
@@ -150,6 +159,9 @@
         $('doneLink').innerHTML = data.meetingUrl
           ? `join here: <a href="${encodeURI(data.meetingUrl)}">${data.meetingUrl.replace(/^https?:\/\//, '')}</a>`
           : `i'll email you a meeting link before the call.`;
+        $('invited').hidden = !data.invited;
+        $('addLabel').textContent = data.invited ? 'or add it yourself: ' : '';
+        $('gcal').href = gcalLink(start, data.duration, data.meetingUrl);
         $('ics').href = URL.createObjectURL(new Blob([ics(start, data.duration, data.meetingUrl)], { type: 'text/calendar' }));
       }
 

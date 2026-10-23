@@ -16,7 +16,7 @@ export async function GET(request) {
   if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return json({ error: 'Bad session' }, 400);
   const booking = await confirmBooking(await stripe(`/checkout/sessions/${sessionId}`));
   if (!booking) return json({ error: "Payment hasn't gone through yet" }, 402);
-  return json({ booking, duration: DURATION_MIN, meetingUrl: process.env.MEETING_URL ?? '' });
+  return json({ booking, duration: DURATION_MIN, meetingUrl: booking.meetUrl || process.env.MEETING_URL || '', invited: Boolean(booking.eventId) });
 }
 
 export async function POST(request) {
