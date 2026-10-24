@@ -1,10 +1,11 @@
 // Backend for the /admin page: list posts, add/edit/delete keyword rules, backfill old comments,
-// and view/cancel paid 1:1 bookings.
+// view/cancel paid 1:1 bookings, and manage the reels posting queue.
 // Every request needs `Authorization: Bearer <ADMIN_PASSWORD>`.
 
 import crypto from 'node:crypto';
 import { getRules, saveRules, recentPosts, backfill } from './_lib.mjs';
 import { listBookings, cancelBooking } from './_booking.mjs';
+import { getQueue, saveQueue, isPaused, setPaused, publishNext } from './_queue.mjs';
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -16,13 +17,38 @@ function authorized(request) {
 
 export async function GET(request) {
   if (!authorized(request)) return json({ error: 'Wrong password' }, 401);
-  const [rules, posts, bookings] = await Promise.all([getRules(), recentPosts(), listBookings()]);
-  return json({ rules, posts, bookings });
+  const [rules, posts, bookings, queue, paused] = await Promise.all([
+    getRules(), recentPosts(), listBookings(), getQueue(), isPaused(),
+  ]);
+  return json({ rules, posts, bookings, queue, paused });
 }
 
 export async function POST(request) {
   if (!authorized(request)) return json({ error: 'Wrong password' }, 401);
-  const { action, rule, id } = await request.json();
+  const { action, rule, id, caption, paused, dir } = await request.json();
+
+  if (action === 'queuePause') {
+    await setPaused(Boolean(paused));
+    return json({ paused: Boolean(paused) });
+  }
+  if (action === 'queuePostNow') {
+    return json(await publishNext({ id }));
+  }
+  if (['queueCaption', 'queueRemove', 'queueMove', 'queueRetry'].includes(action)) {
+    const queue = await getQueue();
+    const i = queue.findIndex((q) => q.id === id);
+    if (i < 0) return json({ error: 'Not in the queue' }, 404);
+    if (action === 'queueCaption') queue[i].caption = String(caption ?? '');
+    if (action === 'queueRemove') queue.splice(i, 1);
+    if (action === 'queueRetry') Object.assign(queue[i], { status: 'queued', error: undefined, container: undefined });
+    if (action === 'queueMove') {
+      const j = i + (dir === 'up' ? -1 : 1);
+      if (j >= 0 && j < queue.length) [queue[i], queue[j]] = [queue[j], queue[i]];
+    }
+    await saveQueue(queue);
+    return json({ queue });
+  }
+
   const rules = await getRules();
 
   if (action === 'save') {

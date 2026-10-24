@@ -5,7 +5,12 @@
   "cleanUrls": true,
   "fluid": true,
   "functions": { "api/*.mjs": { "maxDuration": 300 } },
-  "crons": [{ "path": "/api/refresh-token", "schedule": "0 9 * * 1" }],
+  "crons": [
+    { "path": "/api/refresh-token", "schedule": "0 9 * * 1" },
+    { "path": "/api/post-reels?slot=1", "schedule": "0 16 * * *" },
+    { "path": "/api/post-reels?slot=2", "schedule": "0 20 * * *" },
+    { "path": "/api/post-reels?slot=3", "schedule": "0 0 * * *" }
+  ],
   "redirects": [
     { "source": "/about", "destination": "/", "permanent": true },
     { "source": "/about.html", "destination": "/", "permanent": true }

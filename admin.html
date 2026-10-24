@@ -77,6 +77,18 @@
       .ok { color: var(--good); }
       .check { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-weight: 600; }
       .check input { width: auto; }
+      .qitem { display: grid; grid-template-columns: 1fr; gap: 6px; }
+      .qitem .caption { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; max-height: 4.6em; overflow: hidden; }
+      .qitem.open .caption { max-height: none; }
+      .chip.trial { background: #fdf0dc; color: #a2620b; }
+      .chip.posted { background: #e3f4ea; color: var(--good); }
+      .chip.failed { background: #fbe6e4; color: var(--bad); }
+      @media (prefers-color-scheme: dark) {
+        .chip.trial { background: #3a2c14; color: #f0b04f; }
+        .chip.posted { background: #14301f; }
+        .chip.failed { background: #3a1a17; }
+      }
+      .hidden-posted summary { cursor: pointer; margin: 8px 0; }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -119,7 +131,14 @@
           <div id="editorError" class="error"></div>
         </form>
 
-        <h2>Upcoming 1:1s</h2>
+        <div class="row" style="justify-content: space-between; margin-bottom: 12px">
+          <h2 style="margin: 0">Reels queue <span id="queueCount" class="muted"></span></h2>
+          <button id="pauseBtn"></button>
+        </div>
+        <p class="muted" style="margin-top: 0">Posts the next one at ~11am, 3pm and 7pm Central. Each gets its comment rule automatically.</p>
+        <div id="queue"></div>
+
+        <h2 style="margin-top: 24px">Upcoming 1:1s</h2>
         <div id="bookings"></div>
 
         <h2 style="margin-top: 24px">Comment rules</h2>
@@ -162,6 +181,7 @@
           $('app').hidden = false;
           renderRules();
           renderBookings();
+          renderQueue();
         } catch (err) {
           if (!password) return showLogin();
           showLogin(err.message);
@@ -223,6 +243,101 @@
         await api('POST', { action: 'cancelBooking', id });
         state.bookings = state.bookings.filter((b) => b.id !== id);
         renderBookings();
+      });
+
+      // Cron slots are 16:00, 20:00 and 00:00 UTC; estimate when each waiting reel goes out.
+      function nextSlots(n) {
+        const out = [];
+        const t = new Date();
+        t.setUTCMinutes(0, 0, 0);
+        while (out.length < n) {
+          t.setUTCHours(t.getUTCHours() + 1);
+          if ([16, 20, 0].includes(t.getUTCHours())) out.push(new Date(t));
+        }
+        return out;
+      }
+
+      function renderQueue() {
+        const queue = state.queue ?? [];
+        const waiting = queue.filter((q) => q.status !== 'posted');
+        const posted = queue.filter((q) => q.status === 'posted');
+        $('queueCount').textContent = `— ${waiting.length} waiting, ${posted.length} posted`;
+        $('pauseBtn').textContent = state.paused ? '▶ Resume posting' : '⏸ Pause posting';
+        $('pauseBtn').className = state.paused ? 'primary' : '';
+        const slots = nextSlots(waiting.length);
+        let k = 0;
+        const card = (q) => {
+          const when = q.status === 'posted'
+            ? `posted ${new Date(q.postedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+            : q.status === 'failed' ? '' : state.paused ? 'paused' : `~${slots[k++]?.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric' })}`;
+          return `
+            <div class="card qitem" data-id="${esc(q.id)}">
+              <div class="row">
+                <span class="chip ${q.trial ? 'trial' : ''}">${q.trial ? 'TRIAL' : 'NORMAL'}</span>
+                ${q.status !== 'queued' ? `<span class="chip ${esc(q.status)}">${esc(q.status.toUpperCase())}</span>` : ''}
+                <strong>${esc(q.title)}</strong><span class="muted">${esc(when)}</span>
+              </div>
+              ${q.error ? `<div class="error" style="margin: 0">${esc(q.error)}</div>` : ''}
+              <div class="caption">${esc(q.caption)}</div>
+              <div class="row">
+                ${q.status === 'posted'
+                  ? `<a href="${esc(q.permalink)}" target="_blank" rel="noopener">View on Instagram</a>`
+                  : `<a href="${esc(q.file)}" target="_blank" rel="noopener">Preview</a>
+                     <button data-act="more">Show caption</button>
+                     <button data-act="caption">Edit caption</button>
+                     <button data-act="up" title="Move up">↑</button><button data-act="down" title="Move down">↓</button>
+                     ${q.status === 'failed' ? '<button data-act="retry">Retry</button>' : ''}
+                     <button data-act="now" title="Publish this one right away (takes a minute or two)">Post now</button>
+                     <button data-act="remove" class="danger">Remove</button>`}
+              </div>
+              <div class="results"></div>
+            </div>`;
+        };
+        $('queue').innerHTML = (waiting.length ? waiting.map(card).join('') : '<p class="muted">Nothing waiting.</p>') +
+          (posted.length ? `<details class="hidden-posted"><summary class="muted">Posted (${posted.length})</summary>${posted.slice().reverse().map(card).join('')}</details>` : '');
+      }
+
+      $('pauseBtn').addEventListener('click', async () => {
+        const { paused } = await api('POST', { action: 'queuePause', paused: !state.paused });
+        state.paused = paused;
+        renderQueue();
+      });
+
+      $('queue').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        const card = btn.closest('.qitem');
+        const id = card.dataset.id;
+        const item = state.queue.find((q) => q.id === id);
+        const out = card.querySelector('.results');
+        const act = btn.dataset.act;
+        if (act === 'more') { card.classList.toggle('open'); btn.textContent = card.classList.contains('open') ? 'Hide caption' : 'Show caption'; return; }
+        try {
+          btn.disabled = true;
+          if (act === 'caption') {
+            const caption = prompt('Caption', item.caption);
+            if (caption === null) return;
+            state.queue = (await api('POST', { action: 'queueCaption', id, caption })).queue;
+          } else if (act === 'up' || act === 'down') {
+            state.queue = (await api('POST', { action: 'queueMove', id, dir: act })).queue;
+          } else if (act === 'remove') {
+            if (!confirm(`Remove "${item.title}" from the queue?`)) return;
+            state.queue = (await api('POST', { action: 'queueRemove', id })).queue;
+          } else if (act === 'retry') {
+            state.queue = (await api('POST', { action: 'queueRetry', id })).queue;
+          } else if (act === 'now') {
+            if (!confirm(`Publish "${item.title}" to Instagram now?`)) return;
+            out.innerHTML = '<div class="muted">Uploading to Instagram… this takes a minute or two.</div>';
+            const r = await api('POST', { action: 'queuePostNow', id });
+            out.innerHTML = r.posted ? `<div class="ok">Posted!</div>` : `<div class="muted">${esc(r.processing ? 'Still processing; the next run will finish it.' : r.skipped ?? r.error ?? '')}</div>`;
+            return load();
+          }
+          renderQueue();
+        } catch (err) {
+          out.innerHTML = `<div class="error">${esc(err.message)}</div>`;
+        } finally {
+          btn.disabled = false;
+        }
       });
 
       function renderPosts() {
