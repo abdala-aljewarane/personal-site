@@ -135,7 +135,7 @@
           <h2 style="margin: 0">Reels queue <span id="queueCount" class="muted"></span></h2>
           <button id="pauseBtn"></button>
         </div>
-        <p class="muted" style="margin-top: 0">Posts the next one at ~11am, 3pm and 7pm Central. Each gets its comment rule automatically.</p>
+        <p class="muted" style="margin-top: 0">Posts the next 3 every 12 hours (~6:45am and 6:45pm Central). Each gets its comment rule automatically.</p>
         <div id="queue"></div>
 
         <h2 style="margin-top: 24px">Upcoming 1:1s</h2>
@@ -245,16 +245,16 @@
         renderBookings();
       });
 
-      // Cron slots are 16:00, 20:00 and 00:00 UTC; estimate when each waiting reel goes out.
+      // The cron posts a batch of 3 at 11:45 and 23:45 UTC; estimate when each waiting reel goes out.
       function nextSlots(n) {
         const out = [];
         const t = new Date();
-        t.setUTCMinutes(0, 0, 0);
+        t.setUTCMinutes(45, 0, 0);
         while (out.length < n) {
           t.setUTCHours(t.getUTCHours() + 1);
-          if ([16, 20, 0].includes(t.getUTCHours())) out.push(new Date(t));
+          if ([11, 23].includes(t.getUTCHours())) out.push(...Array(3).fill(new Date(t)));
         }
-        return out;
+        return out.slice(0, n);
       }
 
       function renderQueue() {
@@ -329,7 +329,9 @@
             if (!confirm(`Publish "${item.title}" to Instagram now?`)) return;
             out.innerHTML = '<div class="muted">Uploading to Instagram… this takes a minute or two.</div>';
             const r = await api('POST', { action: 'queuePostNow', id });
-            out.innerHTML = r.posted ? `<div class="ok">Posted!</div>` : `<div class="muted">${esc(r.processing ? 'Still processing; the next run will finish it.' : r.skipped ?? r.error ?? '')}</div>`;
+            const res = r.results?.[0] ?? {};
+            out.innerHTML = res.posted ? `<div class="ok">Posted!</div>`
+              : `<div class="muted">${esc(res.processing ? 'Still processing; the next run will finish it.' : r.skipped ?? res.error ?? '')}</div>`;
             return load();
           }
           renderQueue();

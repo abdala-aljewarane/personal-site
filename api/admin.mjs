@@ -5,7 +5,7 @@
 import crypto from 'node:crypto';
 import { getRules, saveRules, recentPosts, backfill } from './_lib.mjs';
 import { listBookings, cancelBooking } from './_booking.mjs';
-import { getQueue, saveQueue, isPaused, setPaused, publishNext } from './_queue.mjs';
+import { getQueue, saveQueue, isPaused, setPaused, publishBatch } from './_queue.mjs';
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -25,14 +25,14 @@ export async function GET(request) {
 
 export async function POST(request) {
   if (!authorized(request)) return json({ error: 'Wrong password' }, 401);
-  const { action, rule, id, caption, paused, dir } = await request.json();
+  const { action, rule, id, caption, paused, dir, count } = await request.json();
 
   if (action === 'queuePause') {
     await setPaused(Boolean(paused));
     return json({ paused: Boolean(paused) });
   }
   if (action === 'queuePostNow') {
-    return json(await publishNext({ id }));
+    return json(id ? await publishBatch({ id }) : await publishBatch({ count: Math.min(Number(count) || 1, 5) }));
   }
   if (['queueCaption', 'queueRemove', 'queueMove', 'queueRetry'].includes(action)) {
     const queue = await getQueue();

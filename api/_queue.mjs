@@ -30,54 +30,76 @@ async function saveItem(item) {
   await saveQueue(queue);
 }
 
-// Publishes the next reel (or the one with `id`). A container still processing after ~4 min is
-// left as "processing" and finished by the next run. One run at a time.
-export async function publishNext({ id } = {}) {
+// Publishes the next `count` reels (or just the one with `id`). Their containers are created up front
+// so Instagram processes them in parallel, then each is published in queue order once it's ready.
+// One still processing after ~4 min stays "processing" and is finished first by the next run.
+export async function publishBatch({ count = 1, id } = {}) {
   const locked = await redis('SET', 'ig:queue:lock', '1', 'NX', 'EX', 330);
   if (!locked) return { skipped: 'another post is in progress' };
-  let item;
   try {
     const queue = await getQueue();
-    item = id
-      ? queue.find((q) => q.id === id && q.status !== 'posted')
-      : queue.find((q) => q.status === 'processing') ?? queue.find((q) => q.status === 'queued');
-    if (!item) return { skipped: id ? 'not found or already posted' : 'queue is empty' };
+    const items = id
+      ? queue.filter((q) => q.id === id && q.status !== 'posted')
+      : [...queue.filter((q) => q.status === 'processing'), ...queue.filter((q) => q.status === 'queued')].slice(0, count);
+    if (!items.length) return { skipped: id ? 'not found or already posted' : 'queue is empty' };
     const me = await graph('/me', { params: { fields: 'user_id' } });
+    const results = [];
 
-    if (!item.container) {
-      const container = await graph(`/${me.user_id}/media`, {
-        method: 'POST',
-        body: {
-          media_type: 'REELS',
-          video_url: item.file,
-          caption: item.caption,
-          share_to_feed: true,
-          ...(item.trial ? { trial_params: { graduation_strategy: 'MANUAL' } } : {}),
-        },
-      });
-      Object.assign(item, { container: container.id, status: 'processing', error: undefined });
+    for (const item of items.filter((q) => !q.container)) {
+      try {
+        const container = await graph(`/${me.user_id}/media`, {
+          method: 'POST',
+          body: {
+            media_type: 'REELS',
+            video_url: item.file,
+            caption: item.caption,
+            share_to_feed: true,
+            ...(item.trial ? { trial_params: { graduation_strategy: 'MANUAL' } } : {}),
+          },
+        });
+        Object.assign(item, { container: container.id, status: 'processing', error: undefined });
+      } catch (err) {
+        // Failed, not retried forever: the next run moves on to the next reel.
+        Object.assign(item, { status: 'failed', error: err.message });
+        results.push({ failed: item.title, error: err.message });
+      }
       await saveItem(item);
     }
 
+    const pending = items.filter((q) => q.status === 'processing');
     const deadline = Date.now() + 240e3;
-    let status;
-    while (true) {
-      status = await graph(`/${item.container}`, { params: { fields: 'status_code,status' } });
-      if (status.status_code !== 'IN_PROGRESS') break;
-      if (Date.now() > deadline) return { processing: item.title };
-      await sleep(15e3);
+    while (pending.length) {
+      for (const item of [...pending]) {
+        const status = await graph(`/${item.container}`, { params: { fields: 'status_code,status' } });
+        if (status.status_code === 'IN_PROGRESS') continue;
+        pending.splice(pending.indexOf(item), 1);
+        if (status.status_code === 'FINISHED') {
+          results.push(await publishOne(me.user_id, item));
+        } else {
+          Object.assign(item, { status: 'failed', error: status.status ?? status.status_code, container: undefined });
+          await saveItem(item);
+          results.push({ failed: item.title, error: item.error });
+        }
+      }
+      if (!pending.length) break;
+      if (Date.now() > deadline) {
+        results.push(...pending.map((q) => ({ processing: q.title })));
+        break;
+      }
+      await sleep(10e3);
     }
-    if (status.status_code === 'ERROR' || status.status_code === 'EXPIRED') {
-      Object.assign(item, { status: 'failed', error: status.status ?? status.status_code, container: undefined });
-      await saveItem(item);
-      return { failed: item.title, error: item.error };
-    }
+    return { results };
+  } finally {
+    await redis('DEL', 'ig:queue:lock');
+  }
+}
 
-    const published = await graph(`/${me.user_id}/media_publish`, { method: 'POST', body: { creation_id: item.container } });
+async function publishOne(igUserId, item) {
+  try {
+    const published = await graph(`/${igUserId}/media_publish`, { method: 'POST', body: { creation_id: item.container } });
     const media = await graph(`/${published.id}`, { params: { fields: 'permalink' } });
     Object.assign(item, { status: 'posted', mediaId: published.id, permalink: media.permalink, postedAt: new Date().toISOString() });
     await saveItem(item);
-
     if (item.keyword && item.dm) {
       const rules = await getRules();
       rules.push({
@@ -93,13 +115,8 @@ export async function publishNext({ id } = {}) {
     }
     return { posted: item.title, permalink: media.permalink };
   } catch (err) {
-    // Mark it failed so the next run moves on instead of retrying the same reel forever.
-    if (item) {
-      Object.assign(item, { status: 'failed', error: err.message, container: undefined });
-      await saveItem(item);
-    }
-    throw err;
-  } finally {
-    await redis('DEL', 'ig:queue:lock');
+    Object.assign(item, { status: 'failed', error: err.message, container: undefined });
+    await saveItem(item);
+    return { failed: item.title, error: err.message };
   }
 }

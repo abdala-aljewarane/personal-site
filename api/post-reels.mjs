@@ -1,6 +1,8 @@
-// Cron (see vercel.json, 3x a day): publishes the next reel in the queue unless posting is paused.
+// Cron (see vercel.json, every 12 hours): publishes the next batch of reels unless posting is paused.
 
-import { publishNext, isPaused } from './_queue.mjs';
+import { publishBatch, isPaused } from './_queue.mjs';
+
+const BATCH_SIZE = 3;
 
 export async function GET(request) {
   if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -8,7 +10,7 @@ export async function GET(request) {
   }
   if (await isPaused()) return Response.json({ skipped: 'paused' });
   try {
-    return Response.json(await publishNext());
+    return Response.json(await publishBatch({ count: BATCH_SIZE }));
   } catch (err) {
     console.error('post-reels failed:', err.message);
     return Response.json({ error: err.message }, { status: 500 });

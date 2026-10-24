@@ -7,9 +7,8 @@
   "functions": { "api/*.mjs": { "maxDuration": 300 } },
   "crons": [
     { "path": "/api/refresh-token", "schedule": "0 9 * * 1" },
-    { "path": "/api/post-reels?slot=1", "schedule": "0 16 * * *" },
-    { "path": "/api/post-reels?slot=2", "schedule": "0 20 * * *" },
-    { "path": "/api/post-reels?slot=3", "schedule": "0 0 * * *" }
+    { "path": "/api/post-reels?slot=am", "schedule": "45 11 * * *" },
+    { "path": "/api/post-reels?slot=pm", "schedule": "45 23 * * *" }
   ],
   "redirects": [
     { "source": "/about", "destination": "/", "permanent": true },
