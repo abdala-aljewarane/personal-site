@@ -94,11 +94,32 @@ export async function publishBatch({ count = 1, id } = {}) {
   }
 }
 
+async function deleteBlob(url) {
+  if (!url?.includes('.blob.vercel-storage.com/') || !process.env.BLOB_READ_WRITE_TOKEN) return false;
+  try {
+    const res = await fetch('https://blob.vercel-storage.com/delete', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+        'x-api-version': '11',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ urls: [url] }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('blob delete failed:', err.message);
+    return false;
+  }
+}
+
 async function publishOne(igUserId, item) {
   try {
     const published = await graph(`/${igUserId}/media_publish`, { method: 'POST', body: { creation_id: item.container } });
     const media = await graph(`/${published.id}`, { params: { fields: 'permalink' } });
     Object.assign(item, { status: 'posted', mediaId: published.id, permalink: media.permalink, postedAt: new Date().toISOString() });
+    // Instagram has its own copy now; free the Blob space (the free tier is 1 GB).
+    if (await deleteBlob(item.file)) item.fileDeleted = true;
     await saveItem(item);
     if (item.keyword && item.dm) {
       const rules = await getRules();
