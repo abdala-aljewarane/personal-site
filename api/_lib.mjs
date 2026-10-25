@@ -56,9 +56,11 @@ async function graphAll(path, params) {
   }
 }
 
+export const POST_FIELDS = 'id,permalink,caption,thumbnail_url,media_url,media_type,timestamp,comments_count';
+
 export async function recentPosts() {
   const data = await graph('/me/media', {
-    params: { fields: 'id,permalink,caption,thumbnail_url,media_url,media_type,timestamp,comments_count', limit: '30' },
+    params: { fields: POST_FIELDS, limit: '30' },
   });
   return data.data;
 }

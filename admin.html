@@ -172,7 +172,7 @@
       }
 
       const postThumb = (p) => p?.thumbnail_url || p?.media_url || '';
-      const findPost = (media) => state.posts.find((p) => p.id === media);
+      const findPost = (media) => [...state.posts, ...(state.rulePosts ?? [])].find((p) => p.id === media);
 
       async function load() {
         try {

@@ -3,7 +3,7 @@
 // Every request needs `Authorization: Bearer <ADMIN_PASSWORD>`.
 
 import crypto from 'node:crypto';
-import { getRules, saveRules, recentPosts, backfill } from './_lib.mjs';
+import { getRules, saveRules, recentPosts, backfill, graph, POST_FIELDS } from './_lib.mjs';
 import { listBookings, cancelBooking } from './_booking.mjs';
 import { getQueue, saveQueue, isPaused, setPaused, publishBatch } from './_queue.mjs';
 
@@ -20,7 +20,12 @@ export async function GET(request) {
   const [rules, posts, bookings, queue, paused] = await Promise.all([
     getRules(), recentPosts(), listBookings(), getQueue(), isPaused(),
   ]);
-  return json({ rules, posts, bookings, queue, paused });
+  // Rules on posts older than the latest 30 still need a thumbnail and caption.
+  const recent = new Set(posts.map((p) => p.id));
+  const older = [...new Set(rules.map((r) => r.media).filter((id) => !recent.has(id)))];
+  const rulePosts = (await Promise.allSettled(older.map((id) => graph(`/${id}`, { params: { fields: POST_FIELDS } }))))
+    .filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  return json({ rules, posts, rulePosts, bookings, queue, paused });
 }
 
 export async function POST(request) {
