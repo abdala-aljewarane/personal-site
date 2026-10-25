@@ -109,6 +109,110 @@ li {
   font-size: 0.95rem;
 }
 
+.now-playing.has-art {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.np-art {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.np-info {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.np-label {
+  font-size: 0.75rem;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.np-title {
+  display: block;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-artist {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.np-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: #e5e5e5;
+  overflow: hidden;
+}
+
+.np-controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.np-sound {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.np-sound:hover,
+.np-sound[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.np-volume {
+  width: 64px;
+  accent-color: var(--text);
+}
+
+/* Phones use their own volume buttons (iOS ignores page volume), so give the title the room. */
+@media (max-width: 480px) {
+  .np-volume {
+    display: none;
+  }
+}
+
+.np-fill {
+  height: 100%;
+  width: 0;
+  background: var(--text);
+  transition: width 1s linear;
+}
+
 .links {
   margin: -1.5rem 0 2rem;
   color: var(--muted);
